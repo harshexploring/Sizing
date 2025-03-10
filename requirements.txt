@@ -2,5 +2,4 @@ pandas
 matplotlib
 streamlit
 numpy
-BytesIO
-io
+openpyxl
