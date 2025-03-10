@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import os
+import streamlit as st
+
 
 def process_bess_data(config, input_df):
     # Extract parameters from config dictionary
@@ -139,61 +141,44 @@ def export_to_excel(data, filename="bess_analysis.xlsx"):
             month_df.to_excel(writer, sheet_name=str(month))
     
     print(f"Excel file '{filename}' has been created successfully.")   
-    
+
+
+
+
 
     
   
 
 # Main execution
-if __name__ == "__main__":
+def run_individual_bess_analysis_model(config ,input_df, month_details_df):
 
-    bess_hours = [4]
-    bess_power_range = range(5, 106, 10)  # 5 to 105 with step 10
+    bess_hour , bess_power ,bess_rte, bess_dod = config
+   
     data = {}
-
-    input_path = "C:/Users/hjha/OneDrive - Deloitte (O365D)/Ultratech/Sizing_in_Excel/Ultratech model - v2.xlsx"
-    month_details_path = "C:/Users/hjha/OneDrive - Deloitte (O365D)/Ultratech/Sizing_v1/Input/month_details_input.xlsx"
-
-    input_df = pd.read_excel(input_path, sheet_name='extra')
-    month_details_df = pd.read_excel(month_details_path)
-    month_details_df.set_index('Month', inplace=True)
     
     input_df['Surplus'] = np.maximum(input_df['Generation_Plant_Periphery'] - input_df['Load'], 0)
     input_df['Deficit'] = np.maximum(input_df['Load'] - input_df['Generation_Plant_Periphery'], 0)
     input_df['Load Met By Plant'] = np.minimum(input_df['Generation_Plant_Periphery'], input_df['Load'])
     
-    for bess_hour in bess_hours:
-        print(f"For bess_hour: {bess_hour}")
+    
+    print(f"For bess_hour: {bess_hour}")
+   
+    config = {
+        'bess_power': float(bess_power),
+        'bess_hours': float(bess_hour),
+        'bess_DOD': 10.0, # 10% depth of discharge
+        'bess_RTE': 0.85  # 85% round trip efficiency
+    }
+    #step1: Preparing the dataframe
+    
+    result_df = process_bess_data(config, input_df.copy())  # Pass a copy to avoid modifying the original DF
+    
+    #Step2: Analyzing the dataframe
+    analysis_results = analysis(config, result_df,month_details_df)
 
-        output_dir = f"./{bess_hour}"  # Creates folder in the current working directory
-        os.makedirs(output_dir, exist_ok=True)  # Creates the folder if it doesn't exist
+    data = analysis_results
+    return data
 
-        heat_map_df = pd.DataFrame(index=bess_power_range, columns=[
-        "Total_Load(in MUs)", "Total_Surplus(in MUs)", "Total_Deficit(in MUs)", 
-        "Total_Load_Met_By_Plant(in MUs)", "Total_BESS_Consumption(in MUs)", 
-        "BESS_Penetration(in %)", "Plant_Penetration(in %)", "RE_Penetration(in %)", "Total_Surplus_After_BESS(in MUs)","Total_Deficit_After_BESS(in MUs)","Effective_Cycles"
-        ])
 
-        for bess_power in bess_power_range:
-            config = {
-                'bess_power': float(bess_power),
-                'bess_hours': float(bess_hour),
-                'bess_DOD': 10.0, # 10% depth of discharge
-                'bess_RTE': 0.85  # 85% round trip efficiency
-            }
-            #step1: Preparing the dataframe
-            
-            result_df = process_bess_data(config, input_df.copy())  # Pass a copy to avoid modifying the original DF
-            
-            #Step2: Analyzing the dataframe
-            analysis_results = analysis(config, result_df,month_details_df)
 
-            for key in heat_map_df.columns:
-                heat_map_df.loc[bess_power, key] = analysis_results[key]
-
-            output_path = f'{output_dir}/analysis_{bess_power}_MW.xlsx'
-            export_to_excel(analysis_results , output_path)
-
-        heat_map_df.to_excel(f'{output_dir}/heat_map_{bess_hour}_Hours.xlsx') 
-               
-
+    

@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import os
 
+
+
 def process_bess_data(config, input_df):
     # Extract parameters from config dictionary
     bess_power = config['bess_power']
@@ -124,74 +126,50 @@ def analysis(config, df , month_details_df):
     return data
 
 
-
-def export_to_excel(data, filename="bess_analysis.xlsx"):
-    with pd.ExcelWriter(filename) as writer:
-        # Sheet 1: Summary
-        summary_df = pd.DataFrame(list(data.items())[:10], columns=["Heading", "Value"])
-        summary_df.to_excel(writer, sheet_name="Summary", index=False)
-        
-        # Sheet 2: Monthwise Combined Data
-        data["Monthwise_Data"].to_excel(writer, sheet_name="Monthwise_Combined")
-        
-        # Sheets 3-14: Monthwise Slotwise Battery Analysis
-        for month in range(1, 13):
-            month_df = data["Monthwise_Slotwise_Battery_Analysis"].xs(month, level="Month")
-            month_df.to_excel(writer, sheet_name=str(month))
-    
-    print(f"Excel file '{filename}' has been created successfully.")   
-    
-
-    
-  
-
 # Main execution
-def run_heatmap_analysis_model(hours , start , end , step , input_df, month_details_df):
+def run_heatmap_analysis_model(config, input_df, month_details_df):
 
-    bess_hours = [4]
+    bess_hour , start, end , step, bess_rte , bess_dod = config
     bess_power_range = range(start, end + 1, step)  # 5 to 105 with step 10
     data = {}
 
-    input_path = "C:/Users/hjha/OneDrive - Deloitte (O365D)/Ultratech/Sizing_in_Excel/Ultratech model - v2.xlsx"
-    month_details_path = "C:/Users/hjha/OneDrive - Deloitte (O365D)/Ultratech/Sizing_v1/Input/month_details_input.xlsx"
+
 
     
     input_df['Surplus'] = np.maximum(input_df['Generation_Plant_Periphery'] - input_df['Load'], 0)
     input_df['Deficit'] = np.maximum(input_df['Load'] - input_df['Generation_Plant_Periphery'], 0)
     input_df['Load Met By Plant'] = np.minimum(input_df['Generation_Plant_Periphery'], input_df['Load'])
     
-    for bess_hour in bess_hours:
-        print(f"For bess_hour: {bess_hour}")
 
-        output_dir = f"./{bess_hour}"  # Creates folder in the current working directory
-        os.makedirs(output_dir, exist_ok=True)  # Creates the folder if it doesn't exist
+    print(f"For bess_hour: {bess_hour}")
 
-        heat_map_df = pd.DataFrame(index=bess_power_range, columns=[
-        "Total_Load(in MUs)", "Total_Surplus(in MUs)", "Total_Deficit(in MUs)", 
-        "Total_Load_Met_By_Plant(in MUs)", "Total_BESS_Consumption(in MUs)", 
-        "BESS_Penetration(in %)", "Plant_Penetration(in %)", "RE_Penetration(in %)", "Total_Surplus_After_BESS(in MUs)","Total_Deficit_After_BESS(in MUs)","Effective_Cycles"
-        ])
 
-        for bess_power in bess_power_range:
-            config = {
-                'bess_power': float(bess_power),
-                'bess_hours': float(bess_hour),
-                'bess_DOD': 10.0, # 10% depth of discharge
-                'bess_RTE': 0.85  # 85% round trip efficiency
-            }
-            #step1: Preparing the dataframe
-            
-            result_df = process_bess_data(config, input_df.copy())  # Pass a copy to avoid modifying the original DF
-            
-            #Step2: Analyzing the dataframe
-            analysis_results = analysis(config, result_df,month_details_df)
+    heat_map_df = pd.DataFrame(index=bess_power_range, columns=[
+    "Total_Load(in MUs)", "Total_Surplus(in MUs)", "Total_Deficit(in MUs)", 
+    "Total_Load_Met_By_Plant(in MUs)", "Total_BESS_Consumption(in MUs)", 
+    "BESS_Penetration(in %)", "Plant_Penetration(in %)", "RE_Penetration(in %)", "Total_Surplus_After_BESS(in MUs)","Total_Deficit_After_BESS(in MUs)","Effective_Cycles"
+    ])
 
-            for key in heat_map_df.columns:
-                heat_map_df.loc[bess_power, key] = analysis_results[key]
+    for bess_power in bess_power_range:
+        config = {
+            'bess_power': float(bess_power),
+            'bess_hours': float(bess_hour),
+            'bess_DOD': bess_dod, # 10% depth of discharge
+            'bess_RTE': bess_rte  # 85% round trip efficiency
+        }
+        #step1: Preparing the dataframe
+        
+        result_df = process_bess_data(config, input_df.copy())  # Pass a copy to avoid modifying the original DF
+        
+        #Step2: Analyzing the dataframe
+        analysis_results = analysis(config, result_df,month_details_df)
 
-            
-            
-        # heat_map_df.to_excel(f'{output_dir}/heat_map_{bess_hour}_Hours.xlsx') 
-        return heat_map_df
+        for key in heat_map_df.columns:
+            heat_map_df.loc[bess_power, key] = analysis_results[key]
+
+        
+        
+
+    return heat_map_df
                
 
