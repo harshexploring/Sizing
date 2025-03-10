@@ -51,9 +51,11 @@ bess_input_file = st.sidebar.file_uploader("Upload the slotwise demand, generati
 if bess_input_file :
 
     bess_input_df = pd.read_excel(bess_input_file)
-    monthly_details_path = 'Input\month_details_input.xlsx'
+
+    monthly_details_path = './Input/month_details_input.xlsx'
     monthly_details_df = pd.read_excel(monthly_details_path)
     monthly_details_df.set_index("Month", inplace=True)
+    print(monthly_details_df)
 
     rte = st.number_input("Enter the RTE",value=0.85)
     dod = st.number_input("Enter the DOD in %",value=10)
